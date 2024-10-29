@@ -1,30 +1,24 @@
 import copy
 from components.episode_buffer import EpisodeBatch
-from modules.mixers.nmix import Mixer
-from modules.mixers.vdn import VDNMixer
-from modules.mixers.qatten import QattenMixer
+from modules.mixers.qfix import QfixMixer
 from envs.matrix_game import print_matrix_status
 from utils.rl_utils import build_td_lambda_targets, build_q_lambda_targets
 import torch as th
 from torch.optim import RMSprop, Adam
 from utils.th_utils import get_parameters_num
 
-class NQLearner:
+class QfixLearner:
     def __init__(self, mac, scheme, logger, args):
-        self.args = args
         self.mac = mac
         self.logger = logger
+        self.args = args
         
         self.last_target_update_episode = 0
         self.device = th.device('cuda' if args.use_cuda  else 'cpu')
         self.params = list(mac.parameters())
 
-        if args.mixer == "qatten":
-            self.mixer = QattenMixer(args)
-        elif args.mixer == "vdn":
-            self.mixer = VDNMixer(args)
-        elif args.mixer == "qmix":
-            self.mixer = Mixer(args)
+        if args.mixer == "qfix":
+            self.mixer = QfixMixer(scheme, args)
         else:
             raise "mixer error"
         self.target_mixer = copy.deepcopy(self.mixer)
@@ -68,10 +62,6 @@ class NQLearner:
             mac_out.append(agent_outs)
         mac_out = th.stack(mac_out, dim=1)  # Concat over time
 
-        # Pick the Q-Values for the actions taken by each agent
-        chosen_action_qvals = th.gather(mac_out[:, :-1], dim=3, index=actions).squeeze(3)  # Remove the last dim
-        chosen_action_qvals_ = chosen_action_qvals
-
         # Calculate the Q-Values necessary for the target
         with th.no_grad():
             self.target_mac.agent.train()
@@ -89,25 +79,20 @@ class NQLearner:
             mac_out_detach[avail_actions == 0] = -9999999
             cur_max_actions = mac_out_detach.max(dim=3, keepdim=True)[1]
             target_max_qvals = th.gather(target_mac_out, 3, cur_max_actions).squeeze(3)
-            
+
             # Calculate n-step Q-Learning targets
-            target_max_qvals = self.target_mixer(target_max_qvals, batch["state"])
-
+            target_max_qvals = self.target_mixer(target_mac_out, cur_max_actions, batch)
             if getattr(self.args, 'q_lambda', False):
-                qvals = th.gather(target_mac_out, 3, batch["actions"]).squeeze(3)
-                qvals = self.target_mixer(qvals, batch["state"])
-
-                targets = build_q_lambda_targets(rewards, terminated, mask, target_max_qvals, qvals,
-                                    self.args.gamma, self.args.td_lambda)
+                raise "QFix's q_lambda not implemented"
             else:
                 targets = build_td_lambda_targets(rewards, terminated, mask, target_max_qvals, 
                                                     self.args.n_agents, self.args.gamma, self.args.td_lambda)
 
         # Mixer
-        chosen_action_qvals = self.mixer(chosen_action_qvals, batch["state"][:, :-1])
+        chosen_action_qvals = self.mixer(mac_out[:, :-1], actions, batch[:, :-1])
 
         td_error = (chosen_action_qvals - targets.detach())
-        td_error2 = 0.5 * td_error.pow(2)
+        td_error2 = (0.5 * td_error.pow(2))
 
         mask = mask.expand_as(td_error2)
         masked_td_error = td_error2 * mask

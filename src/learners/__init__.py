@@ -1,5 +1,6 @@
 from .q_learner import QLearner
 from .coma_learner import COMALearner
+from .qfix_learner import QfixLearner
 from .qtran_learner import QLearner as QTranLearner
 from .ppo_learner import PPOLearner
 from .lica_learner import LICALearner
@@ -18,6 +19,7 @@ REGISTRY["qtran_learner"] = QTranLearner
 REGISTRY["ppo_learner"] = PPOLearner
 REGISTRY["lica_learner"] = LICALearner
 REGISTRY["nq_learner"] = NQLearner
+REGISTRY["qfix_learner"] = QfixLearner
 REGISTRY["policy_gradient_v2"] = PGLearner_v2
 REGISTRY["max_q_learner"] = MAXQLearner
 REGISTRY["dmaq_qatten_learner"] = DMAQ_qattenLearner

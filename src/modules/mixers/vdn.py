@@ -3,8 +3,9 @@ import torch.nn as nn
 
 
 class VDNMixer(nn.Module):
-    def __init__(self):
+    def __init__(self, args):
         super(VDNMixer, self).__init__()
+        self.args = args
 
     def forward(self, agent_qs, batch):
         return th.sum(agent_qs, dim=2, keepdim=True)
