@@ -14,7 +14,7 @@ args = parser.parse_args()
 map_names = args.maps
 smooth = args.smooth
 
-def plot_algorithm(file_path, label, color, alpha=0.3):
+def plot_algorithm(file_path, label, color, alpha=1):
     if os.path.exists(file_path):
         with open(file_path, 'r') as f:
             data = json.load(f)
@@ -27,7 +27,7 @@ def plot_algorithm(file_path, label, color, alpha=0.3):
         plt.plot(
             steps,
             battle_won_mean,
-            lw=3,
+            lw=2,
             label=label,
             c=color,
             alpha=alpha,
@@ -54,14 +54,11 @@ for i, (ax, map_name) in enumerate(zip(axes, map_names)):
     ax.set_title(f"{map_name}", fontsize=24)
 
     # Plotting each algorithm for the current map
-    plot_algorithm(f'./results/sacred/{map_name}/iql_env=8_adam/best/info.json', "IQL", "rebeccapurple")
-    plot_algorithm(f'./results/sacred/{map_name}/vdn_env=8_adam_td_lambda/best/info.json', "VDN", "darkseagreen")
-    plot_algorithm(f'./results/sacred/{map_name}/qmix_env=8_adam_td_lambda/best/info.json', "Qmix", "brown")
-    plot_algorithm(f'./results/sacred/{map_name}/qplex_env=8_adam_td_lambda/best/info.json', "Qplex", "goldenrod")
-    plot_algorithm(f'./results/sacred/{map_name}/qatten_env=8_adam_td_lambda/best/info.json', "Qatten", "plum")
-    plot_algorithm(f'./results/sacred/{map_name}/qfix_sum_env=8_adam_td_lambda/best/info.json', r"$Qfix-sum$", "indianred", alpha=1)
-    plot_algorithm(f'./results/sacred/{map_name}/qfix_mono_env=8_adam_td_lambda/best/info.json', r"$Qfix-mono$", "steelblue", alpha=1)
-    plot_algorithm(f'./results/sacred/{map_name}/qfix_sum_alt_env=8_adam_td_lambda/best/info.json', "Qfix-sum-alt", "darkgreen", alpha=1)
+    plot_algorithm(f'./results/sacred/{map_name}/qmix/best/info.json', "Qmix", "purple")
+    plot_algorithm(f'./results/sacred/{map_name}/qplex/best/info.json', "Qplex", "goldenrod")
+    plot_algorithm(f'./results/sacred/{map_name}/qfix_sum/best/info.json', r"$Qfix-sum$", "indianred")
+    plot_algorithm(f'./results/sacred/{map_name}/qfix_mono/best/info.json', r"$Qfix-mono$", "steelblue")
+    plot_algorithm(f'./results/sacred/{map_name}/qfix_sum_alt/best/info.json', "Qfix-sum-alt", "darkgreen")
 
     ax.yaxis.set_major_formatter(PercentFormatter(xmax=1))
     ax.set_xlabel('Total Sampling Steps (mil)', fontsize=18, labelpad=6)
