@@ -1,0 +1,2 @@
+2024-11-04 16:07:23 NEW TEST
+2024-11-04 16:07:23 python  src/main.py --config=vdn --env-config=sc2 with env_args.map_name=5m_vs_6m name=vdn 
