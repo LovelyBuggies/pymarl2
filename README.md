@@ -117,6 +117,7 @@ Value-based Methods:
 - [**Qatten**: Qatten: A general framework for cooperative multiagent reinforcement learning](https://arxiv.org/abs/2002.03939)
 - [**QPLEX**: Qplex: Duplex dueling multi-agent q-learning](https://arxiv.org/abs/2008.01062)
 - [**WQMIX**: Weighted QMIX: Expanding Monotonic Value Function Factorisation](https://arxiv.org/abs/2006.10800)
+- **QFIX**: TBD
 
 Actor Critic Methods:
 
@@ -128,28 +129,47 @@ Actor Critic Methods:
 
 ## Installation instructions
 
-Install Python packages
+### Install and Activate Python Environment
+
+Install and activate a modern Python environment.
+Version 3.12 or similar is advised, due to modern functionalities being used.
+
+### Install and Activate Python Environment via venv
 
 ```shell
-# require Anaconda 3 or Miniconda 3
-conda create -n pymarl python=3.8 -y
-conda activate pymarl
-
-bash install_dependecies.sh
+python3.12 -m venv <env_name> <env_path>
+source <env_path>/bin/activate
 ```
 
-Set up StarCraft II (2.4.10) and SMAC:
+### Install and Activate Python Environment via Conda
 
 ```shell
-bash install_sc2.sh
+conda create -n <env_name> python=3.12
+activate <env_name>
 ```
 
-This will download SC2.4.10 into the 3rdparty folder and copy the maps necessary to run over.
-
-Set up Google Football:
+### Install Python packages
 
 ```shell
-bash install_gfootball.sh
+bash install-python-dependecies.sh
+```
+
+### Set Up Environment Variables
+
+Set up `SC2PATH` environment variable: A simple way to do this is to edit the variable defined in `source-this.sh` script, which will be used if the variable is not already defined by other means.
+
+### Install StarCraft II (2.4.10) and SMAC Maps:
+
+```shell
+bash install-sc2.sh
+```
+
+This will download SC2.4.10 into the `$SC2PATH` folder and copy the maps necessary to run over.
+
+### Install Google Football
+
+```shell
+bash install-gfootball.sh
 ```
 
 ## Command Line Tool

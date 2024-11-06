@@ -15,4 +15,4 @@ if [ ! -d "$SC2PATH" ]; then
   )
 fi
 
-./install-sc2-maps-smacv1.sh
+./install-sc2-maps.sh
