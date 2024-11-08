@@ -25,7 +25,8 @@ agent_output_type: q
 learner: "qfix_learner"
 mixer: "qfix"
 sub_mixer: "vdn"
-fix_alt: False
+sum_alt: False
+mono_alt: False
 obs_obs: True
 obs_state: False
 mixing_embed_dim: 32

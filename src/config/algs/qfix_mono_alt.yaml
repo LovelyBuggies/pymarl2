@@ -24,9 +24,9 @@ agent_output_type: q
 
 learner: "qfix_learner"
 mixer: "qfix"
-sub_mixer: "vdn"
-sum_alt: True
-mono_alt: False
+sub_mixer: "qmix"
+sum_alt: False
+mono_alt: True
 obs_obs: True
 obs_state: False
 mixing_embed_dim: 32
@@ -36,4 +36,4 @@ td_lambda: 0.6 # 0.3 for 6h_vs_8z
 optimizer: 'adam'
 q_lambda: False
 
-name: "qfix_sum_alt"
+name: "qfix_mono"

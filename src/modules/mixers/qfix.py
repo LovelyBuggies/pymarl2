@@ -10,19 +10,22 @@ class QfixMixer(nn.Module):
         self.args = args
         self.n_agents = args.n_agents
         self.sub_mixer = args.sub_mixer
-        self.fix_alt = args.fix_alt
+        self.sum_alt = args.sum_alt
+        self.mono_alt = args.mono_alt
         self.obs_obs = args.obs_obs
         self.obs_state = args.obs_state
         if self.sub_mixer == "vdn":
             self.mixer = VDNMixer(args)
+            if self.mono_alt:
+                raise "Cannot mono-alt Qfix-mono"
         elif self.sub_mixer == "qmix":
             self.mixer = QMixer(args)
-            if self.fix_alt:
-                raise "Cannot alt-fix Qfix-mono"
+            if self.sum_alt:
+                raise "Cannot sum-alt Qfix-mono"
         else:
             raise f"Qfix-{self.mixer_name} not implemented"
 
-        if self.fix_alt:
+        if self.sum_alt:
             fixer_input_shape = self._get_input_shape(scheme, obs_obs=self.obs_obs, obs_last_action=True, obs_state=self.obs_state)
             self.fixer = QfixNRNN(fixer_input_shape, args)
         else:
@@ -33,8 +36,8 @@ class QfixMixer(nn.Module):
         self.biaser = QfixRNN(biaser_input_shape * self.n_agents, args)
 
     def forward(self, agent_qs, actions, batch):
-        if self.fix_alt:
-            return self._fix_alt_forward(agent_qs, actions, batch)
+        if self.sum_alt:
+            return self._sum_alt_forward(agent_qs, actions, batch)
         else:
             return self._fix_forward(agent_qs, actions, batch)
 
@@ -55,12 +58,16 @@ class QfixMixer(nn.Module):
             biaser_rnn_output, biaser_hidden_states = self.biaser(biaser_inputs, biaser_hidden_states)
             biaser_output[:, t, :] = biaser_rnn_output
 
-        mix_advs = self.mixer(agent_advs_action.squeeze(3), batch_states)
-        fix_advs = F.elu(mix_advs.view(-1, 1) * fixer_output.view(-1, 1)).view(batch_size, max_t_filled, 1)
+        if self.mono_alt:
+            mix_advs = self.mixer(agent_advs_action.squeeze(3), batch_states)
+            fix_advs = F.elu(mix_advs.view(-1, 1) * fixer_output.view(-1, 1)).view(batch_size, max_t_filled, 1)
+        else:
+            raise "I'm going to implement"
+            pass #todo
 
         return fix_advs + biaser_output
 
-    def _fix_alt_forward(self, agent_qs, actions, batch):
+    def _sum_alt_forward(self, agent_qs, actions, batch):
         batch_states = batch["state"]
         batch_size, max_t_filled, n_agents, n_actions = agent_qs.size()
         agent_vs, agent_advs = self._q_to_v_adv(agent_qs)
@@ -86,8 +93,9 @@ class QfixMixer(nn.Module):
         return agent_vs, agent_advs
 
     def _get_input_shape(self, scheme, obs_obs=True, obs_last_action=False, obs_agent_id=False, obs_state=False):
+        input_shape = 0
         if obs_obs:
-            input_shape = scheme["obs"]["vshape"]
+            input_shape += scheme["obs"]["vshape"]
         if obs_last_action:
             input_shape += scheme["actions_onehot"]["vshape"][0]
         if obs_agent_id:
