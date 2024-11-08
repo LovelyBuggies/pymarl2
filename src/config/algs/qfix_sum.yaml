@@ -26,6 +26,7 @@ learner: "qfix_learner"
 mixer: "qfix"
 sub_mixer: "vdn"
 fix_alt: False
+obs_state: False
 mixing_embed_dim: 32
 hypernet_embed: 64
 lr: 0.001 # Learning rate for agents

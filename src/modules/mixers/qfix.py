@@ -11,6 +11,7 @@ class QfixMixer(nn.Module):
         self.n_agents = args.n_agents
         self.sub_mixer = args.sub_mixer
         self.fix_alt = args.fix_alt
+        self.obs_state = args.obs_state
         if self.sub_mixer == "vdn":
             self.mixer = VDNMixer(args)
         elif self.sub_mixer == "qmix":
@@ -21,13 +22,13 @@ class QfixMixer(nn.Module):
             raise f"Qfix-{self.mixer_name} not implemented"
 
         if self.fix_alt:
-            fixer_input_shape = self._get_input_shape(scheme, obs_last_action=True, obs_agent_id=False)
+            fixer_input_shape = self._get_input_shape(scheme, obs_last_action=True, obs_state=self.obs_state)
             self.fixer = QfixNRNN(fixer_input_shape, args)
         else:
-            fixer_input_shape = self._get_input_shape(scheme, obs_last_action=True, obs_agent_id=False)
+            fixer_input_shape = self._get_input_shape(scheme, obs_last_action=True, obs_state=self.obs_state)
             self.fixer = QfixRNN(fixer_input_shape * self.n_agents, args)
         
-        biaser_input_shape = self._get_input_shape(scheme, obs_last_action=False, obs_agent_id=False)
+        biaser_input_shape = self._get_input_shape(scheme, obs_state=self.obs_state)
         self.biaser = QfixRNN(biaser_input_shape * self.n_agents, args)
 
     def forward(self, agent_qs, actions, batch):
@@ -46,10 +47,10 @@ class QfixMixer(nn.Module):
         biaser_output = th.zeros(batch_size, max_t_filled, 1).to(self.args.device)
         biaser_hidden_states = self.biaser.init_hidden().expand(batch_size, -1)
         for t in range(max_t_filled):
-            fixer_inputs = self._build_inputs(batch, t, obs_last_action=True, obs_agent_id=False)
+            fixer_inputs = self._build_inputs(batch, t, obs_last_action=True, obs_state=self.obs_state)
             fixer_rnn_output, fixer_hidden_states = self.fixer(fixer_inputs, fixer_hidden_states)
             fixer_output[:, t, :] = th.abs(fixer_rnn_output)
-            biaser_inputs = self._build_inputs(batch, t, obs_last_action=False, obs_agent_id=False)
+            biaser_inputs = self._build_inputs(batch, t, obs_state=self.obs_state)
             biaser_rnn_output, biaser_hidden_states = self.biaser(biaser_inputs, biaser_hidden_states)
             biaser_output[:, t, :] = biaser_rnn_output
 
@@ -68,10 +69,10 @@ class QfixMixer(nn.Module):
         biaser_output = th.zeros(batch_size, max_t_filled, 1).to(self.args.device)
         biaser_hidden_states = self.biaser.init_hidden().expand(batch_size, -1)
         for t in range(max_t_filled):
-            fixer_inputs = self._build_inputs(batch, t, obs_last_action=True, obs_agent_id=False)
+            fixer_inputs = self._build_inputs(batch, t, obs_last_action=True, obs_state=self.obs_state)
             fixer_rnn_output, fixer_hidden_states = self.fixer(fixer_inputs, fixer_hidden_states)
             fixer_output[:, t, :, :] = th.abs(fixer_rnn_output)
-            biaser_inputs = self._build_inputs(batch, t, obs_last_action=False, obs_agent_id=False)
+            biaser_inputs = self._build_inputs(batch, t, obs_state=self.obs_state)
             biaser_rnn_output, biaser_hidden_states = self.biaser(biaser_inputs, biaser_hidden_states)
             biaser_output[:, t, :] = biaser_rnn_output
 
@@ -83,15 +84,18 @@ class QfixMixer(nn.Module):
         agent_advs = agent_qs - agent_vs.expand(agent_qs.shape)
         return agent_vs, agent_advs
 
-    def _get_input_shape(self, scheme, obs_last_action=True, obs_agent_id=True):
+    def _get_input_shape(self, scheme, obs_last_action=False, obs_agent_id=False, obs_state=False):
         input_shape = scheme["obs"]["vshape"]
         if obs_last_action:
             input_shape += scheme["actions_onehot"]["vshape"][0]
         if obs_agent_id:
             input_shape += self.n_agents
+        if obs_state:
+            input_shape += scheme["state"]["vshape"]
+
         return input_shape
 
-    def _build_inputs(self, batch, t, obs_last_action=True, obs_agent_id=True):
+    def _build_inputs(self, batch, t, obs_last_action=False, obs_agent_id=False, obs_state=False):
         bs = batch.batch_size
         inputs = []
         inputs.append(batch["obs"][:, t])  # b1av
@@ -102,6 +106,9 @@ class QfixMixer(nn.Module):
                 inputs.append(batch["actions_onehot"][:, t-1])
         if obs_agent_id:
             inputs.append(th.eye(self.n_agents, device=batch.device).unsqueeze(0).expand(bs, -1, -1))
+        if obs_state:
+            inputs.append(batch["state"][:, t].unsqueeze(1).repeat(1, self.n_agents, 1))
+
         inputs = th.cat([x.reshape(bs, self.n_agents, -1) for x in inputs], dim=-1)
         return inputs
 
