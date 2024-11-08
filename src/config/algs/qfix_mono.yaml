@@ -26,6 +26,7 @@ learner: "qfix_learner"
 mixer: "qfix"
 sub_mixer: "qmix"
 fix_alt: False
+obs_obs: True
 obs_state: False
 mixing_embed_dim: 32
 hypernet_embed: 64
