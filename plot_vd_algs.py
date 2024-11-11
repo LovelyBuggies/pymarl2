@@ -56,11 +56,13 @@ for i, (ax, map_name) in enumerate(zip(axes, map_names)):
     # Plotting each algorithm for the current map
     # plot_algorithm(f'./results/sacred/{map_name}/qmix/best/info.json', "Qmix", "purple")
     # plot_algorithm(f'./results/sacred/{map_name}/qplex/best/info.json', "Qplex", "goldenrod")
-    plot_algorithm(f'./results/sacred/{map_name}/qfix_sum/best/info.json', r"$Qfix-sum (h)$", "indianred")
-    plot_algorithm(f'./results/sacred/{map_name}/qfix_sum/4/info.json', r"$Qfix-sum (h, s)$", "black")
-    # plot_algorithm(f'./results/sacred/{map_name}/qfix_mono/best/info.json', r"$Qfix-mono$", "steelblue")
+    plot_algorithm(f'./results/sacred/{map_name}/qfix_sum/8/info.json', "$Qfix-sum (s)$", "purple")
+    plot_algorithm(f'./results/sacred/{map_name}/qfix_sum/best/info.json', "$Qfix-sum (h)$", "indianred")
+    plot_algorithm(f'./results/sacred/{map_name}/qfix_sum/4/info.json', "$Qfix-sum (h, s)$", "goldenrod")
+    # plot_algorithm(f'./results/sacred/{map_name}/qfix_mono/best/info.json', "$Qfix-mono$", "steelblue")
+    plot_algorithm(f'./results/sacred/{map_name}/qfix_sum_alt/4/info.json', "Qfix-sum-alt (s)", "steelblue")
     plot_algorithm(f'./results/sacred/{map_name}/qfix_sum_alt/best/info.json', "Qfix-sum-alt (h)", "darkgreen")
-    plot_algorithm(f'./results/sacred/{map_name}/qfix_sum_alt/1/info.json', "Qfix-sum-alt (h, s)", "grey")
+    plot_algorithm(f'./results/sacred/{map_name}/qfix_sum_alt/1/info.json', "Qfix-sum-alt (h, s)", "plum")
 
     ax.yaxis.set_major_formatter(PercentFormatter(xmax=1))
     ax.set_xlabel('Total Sampling Steps (mil)', fontsize=18, labelpad=6)
