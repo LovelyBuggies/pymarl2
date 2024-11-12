@@ -58,9 +58,13 @@ class QfixMixer(nn.Module):
             biaser_rnn_output, biaser_hidden_states = self.biaser(biaser_inputs, biaser_hidden_states)
             biaser_output[:, t, :] = biaser_rnn_output
 
-        if self.sub_mixer == "qmix" and self.mono_alt == False:
-            raise "I'm going to implement"
-        else:
+        if self.sub_mixer == "qmix" and self.mono_alt == False: # qfix_mono
+            agent_qs_action = th.gather(agent_qs, 3, index=actions)
+            mix_qs = self.mixer(agent_qs_action.squeeze(3), batch_states)
+            mix_vs = self.mixer(agent_vs.squeeze(3), batch_states)
+            mix_advs = mix_qs - mix_vs
+            fix_advs = F.elu(mix_advs.view(-1, 1) * fixer_output.view(-1, 1)).view(batch_size, max_t_filled, 1)
+        else: # qfix_sum, qfix_mono_alt
             mix_advs = self.mixer(agent_advs_action.squeeze(3), batch_states)
             fix_advs = F.elu(mix_advs.view(-1, 1) * fixer_output.view(-1, 1)).view(batch_size, max_t_filled, 1)
 
