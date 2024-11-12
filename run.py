@@ -1,12 +1,11 @@
 #!/usr/bin/env python
 import itertools as itt
 import os
-import re
 import subprocess
 import tomllib
 from argparse import ArgumentParser, Namespace
 from datetime import datetime
-from typing import Iterable, Optional
+from typing import Iterable
 
 from pydantic import BaseModel, Field
 
@@ -14,6 +13,8 @@ from pydantic import BaseModel, Field
 def parse_args() -> Namespace:
     parser = ArgumentParser()
     parser.add_argument("--config", default="run.toml")
+    parser.add_argument("--cuda-visible-devices", default=None)
+    parser.add_argument("--debug", action="store_true")
 
     return parser.parse_args()
 
@@ -50,49 +51,50 @@ def make_command(env_config: str, config: str, arguments: list[str]) -> str:
 
 
 def make_commands(config: Config) -> Iterable[str]:
-    n_runs = range(config.n_runs)
+    run_ids = range(config.n_runs)
 
-    for _, run in itt.product(n_runs, config.runs):
+    for _, run in itt.product(run_ids, config.runs):
         arguments = config.arguments + run.arguments
-        command = make_command(config.env_config, run.config, arguments)
-        yield command
+        yield make_command(config.env_config, run.config, arguments)
 
 
-def run_command(command: str, *, env: Optional[dict] = None):
-    if env is None:
-        env = {}
-
-    subprocess.run(
-        command.split(),
-        env={**os.environ, **env},
-    )
+def run_command(command: str, **kwargs):
+    subprocess.run(command.split(), **kwargs)
 
 
-def get_cuda_device(line: str) -> str:
-    if match := re.search(r"GPU (\d+): .*", line):
-        device = match.group(1)
-        return device
+def make_env(args: Namespace) -> dict:
+    env = {}
 
-    raise ValueError("Invalid device string")
-
-
-def get_cuda_devices() -> str:
-    output = subprocess.check_output("nvidia-smi -L".split())
-    lines = map(str, output.splitlines())
-    return ",".join(get_cuda_device(line) for line in lines)
-
-
-def main(config: Config):
-    if "SC2PATH" not in os.environ:
+    if "SC2PATH" not in env:
         home = os.environ["HOME"]
-        os.environ["SC2PATH"] = f"{home}/programs/StarCraftII"
+        env["SC2PATH"] = f"{home}/programs/StarCraftII"
+
+    if args.cuda_visible_devices is not None:
+        env["CUDA_VISIBLE_DEVICES"] = args.cuda_visible_devices
+
+    if args.debug:
+        print("Settig enviroment:")
+        for k, v in env.items():
+            print(f"- {k} = {v}")
+        print()
+
+    env = dict(os.environ, **env)
+
+    return env
+
+
+def main(args: Namespace):
+    env = make_env(args)
+    config = load_config(args.config)
 
     for command in make_commands(config):
+        if args.debug:
+            command = f"echo {command}"
+
         log(config.logfile, command)
-        run_command(command)
+        run_command(command, env=env)
 
 
 if __name__ == "__main__":
     args = parse_args()
-    config = load_config(args.config)
-    main(config)
+    main(args)
