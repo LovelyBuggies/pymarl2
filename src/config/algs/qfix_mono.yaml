@@ -26,9 +26,9 @@ learner: "qfix_learner"
 mixer: "qfix"
 sub_mixer: "qmix"
 sum_alt: False
-mono_alt: False
-obs_obs: True
-obs_state: False
+mono_alt: True
+obs_obs: False
+obs_state: True
 mixing_embed_dim: 32
 hypernet_embed: 64
 lr: 0.001 # Learning rate for agents

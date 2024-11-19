@@ -27,8 +27,8 @@ mixer: "qfix"
 sub_mixer: "vdn"
 sum_alt: True
 mono_alt: False
-obs_obs: True
-obs_state: False
+obs_obs: False
+obs_state: True
 mixing_embed_dim: 32
 hypernet_embed: 64
 lr: 0.001 # Learning rate for agents
