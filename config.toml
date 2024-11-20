@@ -1,0 +1,31 @@
+map = "corridor"
+
+[keys]
+x = "timesteps"
+y = "test_battle_won_mean"
+group = "Model"
+unit = "ID"
+
+[[data]]
+path = "~/Documents/GitHub/pymarl2/results/sacred/{map}/{label}/*/info.json"
+label = "vdn"
+
+[[data]]
+path = "~/Documents/GitHub/pymarl2/results/sacred/{map}/{label}/*/info.json"
+label = "qmix"
+
+[[data]]
+path = "~/Documents/GitHub/pymarl2/results/sacred/{map}/{label}/*/info.json"
+label = "qfix_sum"
+
+[[data]]
+path = "~/Documents/GitHub/pymarl2/results/sacred/{map}/{label}/*/info.json"
+label = "qfix_sum_alt"
+
+[[data]]
+path = "~/Documents/GitHub/pymarl2/results/sacred/{map}/{label}/*/info.json"
+label = "qfix_mono"
+
+[[data]]
+path = "~/Documents/GitHub/pymarl2/results/sacred/{map}/{label}/*/info.json"
+label = "qfix_mono_alt"
