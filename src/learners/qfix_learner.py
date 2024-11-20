@@ -25,6 +25,14 @@ def make_mixer(args: SimpleNamespace) -> nn.Module:
     raise ValueError(f'invalid mixer type "{args.mixer}"')
 
 
+def get_individual_qvalues(mac: BasicMAC, batch: EpisodeBatch) -> torch.Tensor:
+    mac.init_hidden(batch.batch_size)
+    return torch.stack(
+        [mac.forward(batch, t=t) for t in range(batch.max_seq_length)],
+        dim=1,
+    )
+
+
 class QFixLearner:
     def __init__(
         self,
@@ -61,10 +69,10 @@ class QFixLearner:
         # Get the relevant quantities
         states = cast(torch.Tensor, batch["state"])
         # states.shape = (B, T, S)
-        actions = cast(torch.Tensor, batch["actions"][:, :-1])
-        # actions.shape = (B, T-1, N, 1)
-        rewards = cast(torch.Tensor, batch["reward"][:, :-1])
-        # rewards.shape = (B, T-1, 1)
+        actions = cast(torch.Tensor, batch["actions"])
+        # actions.shape = (B, T, N, 1)
+        rewards = cast(torch.Tensor, batch["reward"])
+        # rewards.shape = (B, T, 1)
         terminated = cast(torch.Tensor, batch["terminated"][:, :-1]).float()
         # terminated.shape = (B, T-1, 1)
         mask = cast(torch.Tensor, batch["filled"][:, :-1]).float()
@@ -72,66 +80,32 @@ class QFixLearner:
         # mask.shape = (B, T-1, 1)
         available_actions = batch["avail_actions"]
         # available_actions.shape = (B, T, N, A)
-        actions_onehot = batch["actions_onehot"][:, :-1]
-        # actions_onehot.shape = (B, T-1, N, A)
+        actions_onehot = batch["actions_onehot"]
+        # actions_onehot.shape = (B, T, N, A)
+
+        unavailable_actions_mask = available_actions == 0
+        # unavailable_actions_mask.shape = (B, T, N, A)
 
         # Calculate estimated Q-Values
-        self.mac.init_hidden(batch.batch_size)
-        individual_qvalues = torch.stack(
-            [self.mac.forward(batch, t=t) for t in range(batch.max_seq_length)],
-            dim=1,
-        )
+        individual_qvalues = get_individual_qvalues(self.mac, batch)
         # individual_qvalues.shape = (B, T, N, A)
+        individual_qvalues[unavailable_actions_mask] = -9999999
+
         B, T, N, A = individual_qvalues.shape
 
         # Pick the Q-Values for the actions taken by each agent
         chosen_individual_qvalues = torch.gather(
-            individual_qvalues[:, :-1],
+            individual_qvalues,
             dim=-1,
             index=actions,
         ).squeeze(-1)
-        # chosen_individual_qvalues.shape = (B, T-1, N)
+        # chosen_individual_qvalues.shape = (B, T, N)
 
-        individual_qvalues_detached = individual_qvalues.clone().detach()
-        individual_qvalues_detached[available_actions == 0] = -9999999
-        # individual_qvalues_detached.shape = (B, T, N, A)
-        individual_vvalues, maximal_actions = individual_qvalues_detached[:, :-1].max(
-            dim=-1
-        )
-        # individual_vvalues.shape = (B, T-1, N)
-        # maximal_actions.shape = (B, T-1, N)
-
-        maximal_actions = maximal_actions.detach().unsqueeze(3)
-        # maximal_actions.shape = (B, T-1, N, 1)
-        is_max_action = (maximal_actions == actions).int().float()
-        # is_max_action.shape = (B, T-1, N, 1)
-
-        # Calculate the Q-Values necessary for the target
-        self.target_mac.init_hidden(batch.batch_size)
-        target_individual_qvalues = torch.stack(
-            [self.target_mac.forward(batch, t=t) for t in range(batch.max_seq_length)],
-            dim=1,
-        )
-        target_individual_qvalues[available_actions == 0] = -9999999
-        # target_individual_qvalues.shape = (B, T, N, A)
-
-        # Max over target Q-Values
-        # Get actions that maximise live Q (for double q-learning)
-        # Q: why clone?
-        # individual_qvalues_detached = individual_qvalues.clone().detach()
-        # individual_qvalues_detached[available_actions == 0] = -9999999
-        maximal_actions = individual_qvalues_detached.argmax(dim=-1)
+        individual_vvalues, maximal_actions = individual_qvalues.max(dim=-1)
+        # individual_vvalues.shape = (B, T, N)
         # maximal_actions.shape = (B, T, N)
-
-        # This is the target model evaluated using the non-target maximal actions, per double-Q
-        target_maximal_individual_qvalues = torch.gather(
-            target_individual_qvalues,
-            dim=-1,
-            index=maximal_actions.unsqueeze(-1),
-        ).squeeze(-1)
-        # target_maximal_individual_qvalues.shape = (B, T, N, 1)
-        target_individual_vvalues = target_individual_qvalues.max(dim=-1).values
-        # target_individual_vvalues.shape = (B, T, N)
+        maximal_actions = maximal_actions.unsqueeze(-1)
+        # maximal_actions.shape = (B, T, N, 1)
 
         maximal_actions_onehot = F.one_hot(
             maximal_actions,
@@ -139,16 +113,34 @@ class QFixLearner:
         ).to(torch.device("cuda"), torch.float)
         # maximal_actions_onehot.shape = (B, T, N, A)
 
-        # TODO some really weird shit if happening with the detaches, even here.
-        # - chosen_individual_vvalues are not detached
-        # - individual_vvalues ARE detached ???
-        joint_qvalues = self.mixer(
-            chosen_individual_qvalues,
+        is_action_maximal = actions[:, :-1] == maximal_actions[:, :-1]
+        # is_action_maximal.shape = (B, T-1, N, 1)
+
+        # Calculate the Q-Values necessary for the target
+        target_individual_qvalues = get_individual_qvalues(self.target_mac, batch)
+        # target_individual_qvalues.shape = (B, T, N, A)
+        target_individual_qvalues[unavailable_actions_mask] = -9999999
+
+        target_individual_vvalues = target_individual_qvalues.max(dim=-1).values
+        # target_individual_vvalues.shape = (B, T, N)
+
+        # Max over target Q-Values
+        # Get actions that maximise live Q (for double q-learning)
+        # This is the target model evaluated using the non-target maximal actions, per double-Q
+        target_maximal_individual_qvalues = torch.gather(
+            target_individual_qvalues,
+            dim=-1,
+            index=maximal_actions,
+        ).squeeze(-1)
+        # target_maximal_individual_qvalues.shape = (B, T, N)
+
+        chosen_joint_qvalues = self.mixer(
+            chosen_individual_qvalues[:, :-1],
             states[:, :-1],
-            actions_onehot,
-            individual_vvalues,
+            actions_onehot[:, :-1],
+            individual_vvalues[:, :-1],
         )
-        # joint_qvalues.shape = (B, T-1, 1)
+        # chosen_joint_qvalues.shape = (B, T-1, 1)
 
         target_maximal_joint_qvalues = self.target_mixer(
             target_maximal_individual_qvalues,
@@ -156,11 +148,11 @@ class QFixLearner:
             maximal_actions_onehot,
             target_individual_vvalues,
         )
-        # maximal_joint_qvalues.shape = (B, T, 1)
+        # target_maximal_joint_qvalues.shape = (B, T, 1)
 
         # Calculate 1-step Q-Learning targets
         target_joint_qvalues = build_td_lambda_targets(
-            rewards,
+            rewards[:, :-1],
             terminated,
             mask,
             target_maximal_joint_qvalues,
@@ -171,7 +163,7 @@ class QFixLearner:
         # target_joint_qvalues.shape = (B, T-1, 1)
 
         # Td-error
-        td_error = joint_qvalues - target_joint_qvalues.detach()
+        td_error = chosen_joint_qvalues - target_joint_qvalues.detach()
 
         mask = mask.expand_as(td_error)
 
@@ -183,7 +175,7 @@ class QFixLearner:
 
         # Q: what does hit_prob mean, just the proportion of max actions?
         # but shouldn't it be the epsilon fraction..?
-        masked_hit_prob = torch.mean(is_max_action, dim=2) * mask
+        masked_hit_prob = torch.mean(is_action_maximal.float(), dim=2) * mask
         hit_prob = masked_hit_prob.sum() / mask.sum()
 
         self.optimizer.zero_grad()
@@ -194,7 +186,7 @@ class QFixLearner:
         if num_timestep >= self.num_timestep_log_stats:
             mask_elems = mask.sum().item()
             td_error_abs = masked_td_error.abs().sum().item() / mask_elems
-            q_taken_mean = (joint_qvalues * mask).sum().item() / (
+            q_taken_mean = (chosen_joint_qvalues * mask).sum().item() / (
                 mask_elems * self.args.n_agents
             )
             target_mean = (target_joint_qvalues * mask).sum().item() / (
@@ -205,7 +197,7 @@ class QFixLearner:
                 {
                     "loss": loss.item(),
                     "hit_prob": hit_prob.item(),
-                    "grad_norm": grad_norm,
+                    "grad_norm": grad_norm.item(),
                     "td_error_abs": td_error_abs,
                     "q_taken_mean": q_taken_mean,
                     "target_mean": target_mean,

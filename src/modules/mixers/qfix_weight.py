@@ -7,8 +7,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-def positive(x: torch.Tensor) -> torch.Tensor:
-    return x.abs() + 1e-10
+def gt_constraint(x: torch.Tensor, threshold: float) -> torch.Tensor:
+    return (x - threshold).abs() + threshold + 1e-10
 
 
 def make_feedforward_module(sizes: list[int]) -> nn.Module:
@@ -39,13 +39,12 @@ class QFix_SI_Weight(nn.Module):
         self.args = args
 
         self.n_agents = args.n_agents
-        self.n_actions = args.n_actions
         self.state_dim = int(np.prod(args.state_shape))
-        self.action_dim = args.n_agents * self.n_actions
+        self.action_dim = args.n_agents * args.n_actions
         self.state_action_dim = self.state_dim + self.action_dim
         self.output_dim = 1 if single_output else self.n_agents
 
-        self.num_kernel = args.num_kernel
+        self.num_kernel = args.w_attention_num_kernel
 
         self.key_extractors = nn.ModuleList()
         self.agents_extractors = nn.ModuleList()
@@ -83,7 +82,8 @@ class QFix_SI_Weight(nn.Module):
             self.agents_extractors,
             self.action_extractors,
         ):
-            x_key = positive(key_extractor(states)).repeat(1, self.output_dim)
+            # x_key = positive(key_extractor(states)).repeat(1, self.output_dim)
+            x_key = key_extractor(states).repeat(1, self.output_dim)
             x_agents = F.sigmoid(agents_extractor(states))
             x_action = F.sigmoid(action_extractor(data))
             weights = x_key * x_agents * x_action
@@ -94,3 +94,24 @@ class QFix_SI_Weight(nn.Module):
         head_attend = head_attend.sum(dim=1)
 
         return head_attend
+
+
+class QFix_FF_Weight(nn.Module):
+    def __init__(self, args: SimpleNamespace, *, single_output: bool):
+        super().__init__()
+
+        self.args = args
+
+        state_dim = int(np.prod(args.state_shape))
+        action_dim = args.n_agents * args.n_actions
+        output_dim = 1 if single_output else args.n_agents
+
+        self.module = nn.Sequential(
+            nn.Linear(state_dim + action_dim, args.hypernet_embed),
+            nn.ReLU(),
+            nn.Linear(args.hypernet_embed, output_dim),
+        )
+
+    def forward(self, states: torch.Tensor, actions: torch.Tensor) -> torch.Tensor:
+        data = torch.cat([states, actions], dim=-1)
+        return self.module(data)

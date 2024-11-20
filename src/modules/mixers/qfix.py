@@ -4,7 +4,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from .qfix_si_weight import QFix_SI_Weight
+from .qfix_weight import QFix_FF_Weight, QFix_SI_Weight, gt_constraint
 from .qmix import QMixer
 from .vdn import VDNMixer
 
@@ -31,18 +31,23 @@ class QFix(nn.Module):
 
         self.n_agents = args.n_agents
         self.n_actions = args.n_actions
-        self.state_dim = int(np.prod(args.state_shape))
-        self.action_dim = args.n_agents * args.n_actions
+        self.state_dim = np.prod(args.state_shape).item()
+        self.joint_action_dim = args.n_agents * args.n_actions
 
-        self.w_module = QFix_SI_Weight(args, single_output=True)
+        inner_args = SimpleNamespace(**args.inner_mixer)
+        self.inner_mixer = make_inner_mixer(inner_args, args)
+
+        # NOTE: w is unconstrained here, the constraint is applied later
+        self.w_module = (
+            QFix_SI_Weight(args, single_output=True)
+            if args.qfix_w_attention
+            else QFix_FF_Weight(args, single_output=True)
+        )
         self.b_module = nn.Sequential(
             nn.Linear(self.state_dim, args.hypernet_embed),
             nn.ReLU(),
             nn.Linear(args.hypernet_embed, 1),
         )
-
-        inner_args = SimpleNamespace(**args.inner_mixer)
-        self.inner_mixer = make_inner_mixer(inner_args, args)
 
     def forward(
         self,
@@ -64,18 +69,60 @@ class QFix(nn.Module):
         # store batch size
         batch_size = individual_qvalues.size(0)
 
-        inner_qvalues = self.inner_mixer(individual_qvalues, states)
-        inner_vvalues = self.inner_mixer(individual_vvalues, states)
-        inner_advantages = inner_qvalues - inner_vvalues
-        inner_advantages = inner_advantages.view(-1, 1)
+        inner_qvalues: torch.Tensor = self.inner_mixer(individual_qvalues, states)
+        inner_vvalues: torch.Tensor = self.inner_mixer(individual_vvalues, states)
+        inner_qvalues = inner_qvalues.view(-1, 1)
+        inner_vvalues = inner_vvalues.view(-1, 1)
 
         # flatten batch and time dimensions
         states = states.reshape(-1, self.state_dim)
-        actions = actions.reshape(-1, self.action_dim)
-        w = self.w_module(states, actions)
+        actions = actions.reshape(-1, self.joint_action_dim)
+        w = gt_constraint(
+            self.w_module(states, actions) + self.args.qfix_w_delta,
+            self.args.qfix_w_gt,
+        )
         b = self.b_module(states)
-
-        outputs = w * inner_advantages + b
+        outputs = self._forward(inner_qvalues, inner_vvalues, w, b)
 
         # restore batch dimension
         return outputs.view(batch_size, -1, 1)
+
+    def _forward(
+        self,
+        inner_qvalues: torch.Tensor,
+        inner_vvalues: torch.Tensor,
+        w: torch.Tensor,
+        b: torch.Tensor,
+    ) -> torch.Tensor:
+        if self.args.qfix_type == "qfix":
+            return self._forward_qfix(inner_qvalues, inner_vvalues, w, b)
+
+        if self.args.qfix_type == "q+fix":
+            return self._forward_additive_qfix(inner_qvalues, inner_vvalues, w, b)
+
+        raise NotImplementedError
+
+    def _forward_qfix(
+        self,
+        inner_qvalues: torch.Tensor,
+        inner_vvalues: torch.Tensor,
+        w: torch.Tensor,
+        b: torch.Tensor,
+    ) -> torch.Tensor:
+        inner_advantages = inner_qvalues - inner_vvalues
+        return w * inner_advantages + b
+
+    def _forward_additive_qfix(
+        self,
+        inner_qvalues: torch.Tensor,
+        inner_vvalues: torch.Tensor,
+        w: torch.Tensor,
+        b: torch.Tensor,
+    ) -> torch.Tensor:
+        inner_advantages = inner_qvalues - inner_vvalues
+
+        if self.args.qfix_detach_advantages:
+            inner_advantages = inner_advantages.detach()
+
+        # TODO I'm a moron, right?  w should just be positive here, again? to match the original implementation or w+1?
+        return inner_qvalues + w * inner_advantages + b

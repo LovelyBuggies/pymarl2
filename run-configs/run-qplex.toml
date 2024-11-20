@@ -1,0 +1,12 @@
+n_runs = 1
+
+arguments = [
+  "env_args.map_name=5m_vs_6m",
+  "t_max=10_000_000",
+]
+
+[[runs]]
+config = "qplex"
+arguments = [
+  "name=qplex",
+]
