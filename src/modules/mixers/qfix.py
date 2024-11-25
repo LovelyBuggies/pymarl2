@@ -39,9 +39,9 @@ class QFix(nn.Module):
 
         # NOTE: w is unconstrained here, the constraint is applied later
         self.w_module = (
-            QFix_SI_Weight(args, single_output=True)
+            QFix_SI_Weight(args, multi_output=False)
             if args.qfix_w_attention
-            else QFix_FF_Weight(args, single_output=True)
+            else QFix_FF_Weight(args, multi_output=False)
         )
         self.b_module = nn.Sequential(
             nn.Linear(self.state_dim, args.hypernet_embed),
@@ -100,7 +100,7 @@ class QFix(nn.Module):
         if self.args.qfix_type == "q+fix":
             return self._forward_additive_qfix(inner_qvalues, inner_vvalues, w, b)
 
-        raise NotImplementedError
+        raise ValueError(f"Invalid {self.args.qfix_type=}")
 
     def _forward_qfix(
         self,
@@ -124,5 +124,4 @@ class QFix(nn.Module):
         if self.args.qfix_detach_advantages:
             inner_advantages = inner_advantages.detach()
 
-        # TODO I'm a moron, right?  w should just be positive here, again? to match the original implementation or w+1?
         return inner_qvalues + w * inner_advantages + b

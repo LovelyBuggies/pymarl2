@@ -18,10 +18,11 @@ class QFixSumAlt(nn.Module):
         self.state_dim = np.prod(args.state_shape).item()
         self.joint_action_dim = args.n_agents * args.n_actions
 
+        # NOTE: w is unconstrained here, the constraint is applied later
         self.w_module = (
-            QFix_SI_Weight(args, single_output=False)
-            if args.w_attention
-            else QFix_FF_Weight(args, single_output=False)
+            QFix_SI_Weight(args, multi_output=True)
+            if args.qfix_w_attention
+            else QFix_FF_Weight(args, multi_output=True)
         )
         self.b_module = nn.Sequential(
             nn.Linear(self.state_dim, args.hypernet_embed),
@@ -49,30 +50,63 @@ class QFixSumAlt(nn.Module):
         # store batch size
         batch_size = individual_qvalues.size(0)
 
-        individual_advantages = individual_qvalues - individual_vvalues
-        individual_advantages = individual_advantages.view(-1, self.n_agents)
+        individual_qvalues = individual_qvalues.reshape(-1, self.n_agents)
+        individual_vvalues = individual_vvalues.reshape(-1, self.n_agents)
 
         # flatten batch and time dimensions
         states = states.reshape(-1, self.state_dim)
         actions = actions.reshape(-1, self.joint_action_dim)
-
-        w = self.w_module(states, actions)
-        w = gt_constraint(w, self.args.qfix_w_gt)
+        w = gt_constraint(
+            self.w_module(states, actions) + self.args.qfix_w_delta,
+            self.args.qfix_w_gt,
+        )
         b = self.b_module(states)
+        outputs = self._forward(individual_qvalues, individual_vvalues, w, b)
 
-        outputs: torch.Tensor
-        if self.args.qfix_type == "qfix":
-            outputs = (w * individual_advantages).sum(dim=-1, keepdim=True) + b
-        elif self.args.qfix_type == "q+fix":
-            if self.args.qfix_detach_advantages:
-                individual_advantages = individual_advantages.detach()
-            outputs = (
-                individual_qvalues.sum(dim=-1, keepdim=True)
-                + (w * individual_advantages).sum(dim=-1, keepdim=True)
-                + b
-            )
-        else:
-            raise NotImplementedError
-
-        # restore batch size
+        # restore batch dimension
         return outputs.view(batch_size, -1, 1)
+
+    def _forward(
+        self,
+        individual_qvalues: torch.Tensor,
+        individual_vvalues: torch.Tensor,
+        w: torch.Tensor,
+        b: torch.Tensor,
+    ) -> torch.Tensor:
+        if self.args.qfix_type == "qfix":
+            return self._forward_qfix(individual_qvalues, individual_vvalues, w, b)
+
+        if self.args.qfix_type == "q+fix":
+            return self._forward_additive_qfix(
+                individual_qvalues, individual_vvalues, w, b
+            )
+
+        raise ValueError(f"Invalid {self.args.qfix_type=}")
+
+    def _forward_qfix(
+        self,
+        individual_qvalues: torch.Tensor,
+        individual_vvalues: torch.Tensor,
+        w: torch.Tensor,
+        b: torch.Tensor,
+    ) -> torch.Tensor:
+        individual_advantages = individual_qvalues - individual_vvalues
+        return (w * individual_advantages).sum(dim=-1, keepdim=True) + b
+
+    def _forward_additive_qfix(
+        self,
+        individual_qvalues: torch.Tensor,
+        individual_vvalues: torch.Tensor,
+        w: torch.Tensor,
+        b: torch.Tensor,
+    ) -> torch.Tensor:
+        individual_advantages = individual_qvalues - individual_vvalues
+
+        if self.args.qfix_detach_advantages:
+            individual_advantages = individual_advantages.detach()
+
+        return (
+            individual_qvalues.sum(dim=-1, keepdim=True)
+            + (w * individual_advantages).sum(dim=-1, keepdim=True)
+            + b
+        )

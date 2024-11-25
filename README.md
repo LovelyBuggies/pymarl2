@@ -132,19 +132,20 @@ Actor Critic Methods:
 ### Install and Activate Python Environment
 
 Install and activate a modern Python environment.
-Version 3.12 or similar is advised, due to modern functionalities being used.
+Version 3.11 or above is necessary, due to modern functionalities being used.
+Depending on your hardware, you may need to install specific versions of pytorch that are compatible with python 3.11 for everything to work.
 
 ### Install and Activate Python Environment via venv
 
 ```shell
-python3.12 -m venv <env_name> <env_path>
+python3.11 -m venv <env_name> <env_path>
 source <env_path>/bin/activate
 ```
 
 ### Install and Activate Python Environment via Conda
 
 ```shell
-conda create -n <env_name> python=3.12
+conda create -n <env_name> python=3.11
 activate <env_name>
 ```
 

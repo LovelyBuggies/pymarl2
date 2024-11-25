@@ -1,0 +1,6 @@
+env_config = "sc2"
+n_runs = 3
+arguments = [
+  "env_args.map_name=5m_vs_6m",
+  "t_max=10_000_000",
+]

@@ -1,14 +1,5 @@
-n_runs = 1
-
-arguments = [
-  "env_args.map_name=5m_vs_6m",
-  "t_max=10_000_000",
-]
-
 [[runs]]
-config = "qfix_mono"
+config = "q+fix_mono"
 arguments = [
-  "name=q+fix_mono_latest",
-  "qfix_type=q+fix",
-  "qfix_w_gt=-1",
+  "name=q+fix_mono",
 ]

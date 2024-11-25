@@ -33,7 +33,7 @@ def make_feedforward_module(sizes: list[int]) -> nn.Module:
 
 
 class QFix_SI_Weight(nn.Module):
-    def __init__(self, args: SimpleNamespace, *, single_output: bool):
+    def __init__(self, args: SimpleNamespace, *, multi_output: bool):
         super().__init__()
 
         self.args = args
@@ -42,7 +42,7 @@ class QFix_SI_Weight(nn.Module):
         self.state_dim = int(np.prod(args.state_shape))
         self.action_dim = args.n_agents * args.n_actions
         self.state_action_dim = self.state_dim + self.action_dim
-        self.output_dim = 1 if single_output else self.n_agents
+        self.output_dim = self.n_agents if multi_output else 1
 
         self.num_kernel = args.w_attention_num_kernel
 
@@ -97,14 +97,14 @@ class QFix_SI_Weight(nn.Module):
 
 
 class QFix_FF_Weight(nn.Module):
-    def __init__(self, args: SimpleNamespace, *, single_output: bool):
+    def __init__(self, args: SimpleNamespace, *, multi_output: bool):
         super().__init__()
 
         self.args = args
 
         state_dim = int(np.prod(args.state_shape))
         action_dim = args.n_agents * args.n_actions
-        output_dim = 1 if single_output else args.n_agents
+        output_dim = args.n_agents if multi_output else 1
 
         self.module = nn.Sequential(
             nn.Linear(state_dim + action_dim, args.hypernet_embed),
