@@ -40,12 +40,18 @@ def load_tomllib(filename: str) -> dict:
 
 def load_config(filenames: list[str]) -> Config:
     configs = [load_tomllib(filename) for filename in filenames]
+    return Config(**combine_configs(configs))
 
+
+def combine_configs(configs: list[dict]) -> dict:
     config = functools.reduce(operator.or_, configs, {})
-    runs = (r for c in configs if (r := c.get("runs")) is not None)
-    config["runs"] = sum(runs, [])
 
-    return Config(**config)
+    arguments = (r for c in configs if (r := c.get("arguments")) is not None)
+    runs = (r for c in configs if (r := c.get("runs")) is not None)
+
+    config["arguments"] = sum(arguments, [])
+    config["runs"] = sum(runs, [])
+    return config
 
 
 def log(filename: str, text: str):
