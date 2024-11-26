@@ -8,6 +8,7 @@ install_packages=(
   numpy
   probscale
   protobuf==3.19.5
+  pydantic
   pygame
   pytest
   pyyaml
