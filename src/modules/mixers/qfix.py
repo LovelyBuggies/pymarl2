@@ -78,10 +78,10 @@ class QfixMixer(nn.Module):
             mix_qs = self.mixer(agent_qs_action.squeeze(3), batch_states)
             mix_vs = self.mixer(agent_vs.squeeze(3), batch_states)
             mix_advs = mix_qs - mix_vs
-            fix_advs = F.elu(mix_advs.view(-1, 1) * fixer_output.view(-1, 1)).view(batch_size, max_t_filled, 1)
+            fix_advs = (mix_advs.view(-1, 1) * fixer_output.view(-1, 1)).view(batch_size, max_t_filled, 1)
         else: # qfix_sum, qfix_mono_alt
             mix_advs = self.mixer(agent_advs_action.squeeze(3), batch_states)
-            fix_advs = F.elu(mix_advs.view(-1, 1) * fixer_output.view(-1, 1)).view(batch_size, max_t_filled, 1)
+            fix_advs = (mix_advs.view(-1, 1) * fixer_output.view(-1, 1)).view(batch_size, max_t_filled, 1)
 
         return fix_advs + biaser_output
 
@@ -143,10 +143,7 @@ class QfixMixer(nn.Module):
         if obs_state:
             inputs.append(batch["state"][:, t].unsqueeze(1).repeat(1, self.n_agents, 1))
         if obs_last_action:
-            if t == 0:
-                inputs.append(th.zeros_like(batch["actions_onehot"][:, t]))
-            else:
-                inputs.append(batch["actions_onehot"][:, t-1])
+            inputs.append(batch["actions_onehot"][:, t])
         if obs_agent_id:
             inputs.append(th.eye(self.n_agents, device=batch.device).unsqueeze(0).expand(bs, -1, -1))
         if len(inputs) == 0:
@@ -188,7 +185,7 @@ class QfixMLP(nn.Module):
 
     def forward(self, inputs):
         b, a, e = inputs.size()
-        x = F.relu(self.fc1(inputs.view(b, a * e)), inplace=True)
+        x = F.relu(self.fc1(inputs.view(b, a * e)))
         q = self.fc2(x)
         return q
 
@@ -206,7 +203,7 @@ class QfixNRNN(nn.Module):
     def forward(self, inputs, hidden_state):
         b, a, e = inputs.size()
         inputs = inputs.view(-1, e)
-        x = F.relu(self.fc1(inputs), inplace=True)
+        x = F.relu(self.fc1(inputs))
         h_in = hidden_state.reshape(-1, self.args.rnn_hidden_dim)
         hh = self.rnn(x, h_in)
         q = self.fc2(hh)
