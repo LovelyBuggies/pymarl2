@@ -7,6 +7,7 @@ from .multiagentenv import MultiAgentEnv
 from smacv2.env import StarCraft2Env, StarCraftCapabilityEnvWrapper
 from .one_step_matrix_game import OneStepMatrixGame
 from .stag_hunt import StagHunt
+from .dec_tiger import DecTiger
 
 def env_fn(env, **kwargs) -> MultiAgentEnv:
     return env(**kwargs)
@@ -16,6 +17,7 @@ REGISTRY["sc2"] = partial(env_fn, env=StarCraft2Env)
 REGISTRY["sc2wrapped"] = partial(env_fn, env=StarCraftCapabilityEnvWrapper)
 REGISTRY["one_step_matrix_game"] = partial(env_fn, env=OneStepMatrixGame)
 REGISTRY["stag_hunt"] = partial(env_fn, env=StagHunt)
+REGISTRY["dec_tiger"] = partial(env_fn, env=DecTiger)
 
 if sys.platform == "linux":
     os.environ.setdefault("SC2PATH", "~/StarCraftII")

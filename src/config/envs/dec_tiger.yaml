@@ -1,0 +1,15 @@
+
+env: dec_tiger
+
+test_greedy: True
+test_nepisode: 1
+test_interval: 1000
+log_interval: 1000
+runner_log_interval: 1000
+learner_log_interval: 1000
+t_max: 300000
+
+env_args:
+  map_name: dec_tiger
+  episode_limit: 2
+
