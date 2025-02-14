@@ -8,10 +8,10 @@ from utils.dict2namedtuple import convert
 import numpy as np
 import torch as th
 
-class DecTiger(MultiAgentEnv):
+class DPOMDP(MultiAgentEnv):
     def __init__(self, batch_size=None, **kwargs):
         # inner env
-        self.env = DecTigerEnv(horizon=kwargs["episode_limit"])
+        self.env = DPOMDPEnv(problem=kwargs["map_name"], horizon=kwargs["episode_limit"], seed=kwargs["seed"])
 
         # static variables
         self.n_agents = self.env.n_agents
@@ -85,15 +85,36 @@ class DecTiger(MultiAgentEnv):
         }
         return stats
 
-# DecTiger is wrapper for DecTigerEnv
+
 # from https://github.com/lyu-xg/MAPI/blob/main/src/environments/decpomdp.py
 # input file path changed
-class DecTigerEnv(object):
-    def __init__(self, horizon=2):
+
+DPOMDP_ENVS = {
+    "grid_small": "GridSmall.dpomdp",
+    "grid": "grid3x3corners.dpomdp",
+    "recycling": "recycling.dpomdp",
+    "mars": "Mars.dpomdp",
+    "boxpushing": "boxpushing.dpomdp",
+    "firefighting": "fireFighting.dpomdp",
+    "firefighting_4house": "fireFighting_2_4_3.dpomdp",
+    "wireless": "wirelessWithOverhead.dpomdp",
+    "long_fire_fight": "longFireFight.dpomdp",
+    "dtiger": "dectiger_original.dpomdp",
+    "broadcast_channel": "broadcast_channel.dpomdp",
+    "cooperative_box_pushing": "cooperative_box_pushing.dpomdp",
+}
+
+
+class DPOMDPEnv(object):
+    def __init__(self, problem, horizon=2, seed=1998):
+        np.random.seed(seed)
         self.horizon = horizon
-        filename = os.path.join(os.path.dirname(__file__), "dectiger_original.dpomdp")
+        if DPOMDP_ENVS.get(problem):
+            filename = os.path.join(os.path.dirname(__file__), DPOMDP_ENVS.get(problem))
+        else:
+            raise FileNotFoundError(problem + "environment not found")
         if not filename:
-            raise FileNotFoundError("environment not found")
+            raise FileNotFoundError(problem + "file not found")
         with open(filename, encoding="utf-8") as f:
             self.d = parse(f.read())
 
