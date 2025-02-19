@@ -4,9 +4,9 @@ import numpy as np
 import torch as th
 
 # this non-monotonic matrix can be solved by qmix
-payoff_values = [[12, -0.1, -0.1],
-                    [-0.1, 0, 0],
-                    [-0.1, 0, 0]]
+# payoff_values = [[12, -0.1, -0.1],
+#                     [-0.1, 0, 0],
+#                     [-0.1, 0, 0]]
 
 # payoff_values = [[12, -12, -12],
 #                     [-12, 0, 0],
@@ -15,6 +15,15 @@ payoff_values = [[12, -0.1, -0.1],
 # payoff_values = [[12, 0, 10],
 #                     [0, 0, 10],
 #                     [10, 10, 10]]
+
+# shuo's matrix
+payoff_values = [[12, -18, -10],
+                    [-12, 2, 6],
+                    [-16, 4, 8]]
+
+# payoff_values = [[22, -8, 0],
+#                     [-2, 2, 6],
+#                     [2, 4, 8]]
 
 
 # payoff_values = [[1, 0], [0, 1]]
