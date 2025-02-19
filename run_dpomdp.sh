@@ -5,7 +5,7 @@ pip install tqdm > /dev/null 2>&1
 
 # Define the lists of values
 algs=("vdn" "qmix" "qplex")
-problems=("grid_small" "dtiger" "recycling")
+problems=("grid_small" "dtiger" "recycling" "firefighting")
 horizons=(2 3 4)
 
 # Calculate total number of tasks
@@ -22,7 +22,7 @@ TASK_COUNT=0
 for alg in "${algs[@]}"; do
     for problem in "${problems[@]}"; do
         for horizon in "${horizons[@]}"; do
-            for i in {1..2}; do
+            for i in {1..5}; do
                 # Get current timestamp as seed
                 seed=$(date +%s)
 
