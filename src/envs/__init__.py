@@ -6,6 +6,7 @@ from .multiagentenv import MultiAgentEnv
 
 from smacv2.env import StarCraft2Env, StarCraftCapabilityEnvWrapper
 from .one_step_matrix_game import OneStepMatrixGame
+from .pettingzoo.petting_zoo import PettingZoo
 from .stag_hunt import StagHunt
 from .dpomdp.dpomdp import DPOMDP
 
@@ -18,6 +19,7 @@ REGISTRY["sc2wrapped"] = partial(env_fn, env=StarCraftCapabilityEnvWrapper)
 REGISTRY["one_step_matrix_game"] = partial(env_fn, env=OneStepMatrixGame)
 REGISTRY["stag_hunt"] = partial(env_fn, env=StagHunt)
 REGISTRY["dpomdp"] = partial(env_fn, env=DPOMDP)
+REGISTRY["pettingzoo"] = partial(env_fn, env=PettingZoo)
 
 if sys.platform == "linux":
     os.environ.setdefault("SC2PATH", "~/StarCraftII")

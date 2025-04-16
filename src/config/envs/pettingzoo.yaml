@@ -1,5 +1,5 @@
 
-env: dpomdp
+env: pettingzoo
 
 test_greedy: True
 test_nepisode: 1
@@ -10,7 +10,7 @@ learner_log_interval: 1000
 t_max: 500000
 
 env_args:
-  map_name: dec_tiger # boxpusing, dtiger, recycling
-  episode_limit: 5
+  map_name: SimpleSpread
+  episode_limit: 25 # this is not parsed into the inner env yet
   seed: 1998
 

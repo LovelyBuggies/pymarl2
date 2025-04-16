@@ -6,7 +6,7 @@ pip install tqdm > /dev/null 2>&1
 # Define the lists of values
 algs=("vdn" "qmix" "qplex")
 problems=("grid_small" "dtiger" "recycling" "firefighting")
-horizons=(2 3 4)
+horizons=(5 6 7)
 
 # Calculate total number of tasks
 TOTAL_TASKS=$(( ${#algs[@]} * ${#problems[@]} * ${#horizons[@]} ))
